@@ -1,4 +1,4 @@
-Bot Created Via [NFD](https://github.com/LloydAsp/nfd)
+Bot Created Via [NFD](https://github.com/cqd5686/tgbot)
 
 使用方法：
 
