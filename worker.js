@@ -4,11 +4,11 @@ const SECRET = ENV_BOT_SECRET // A-Z, a-z, 0-9, _ and -
 const ADMIN_UID = ENV_ADMIN_UID // your user id, get it from https://t.me/username_to_id_bot
 
 const NOTIFY_INTERVAL = 3600 * 1000;
-const fraudDb = 'https://raw.githubusercontent.com/LloydAsp/nfd/main/data/fraud.db';
-const notificationUrl = 'https://raw.githubusercontent.com/LloydAsp/nfd/main/data/notification.txt'
-const startMsgUrl = 'https://raw.githubusercontent.com/LloydAsp/nfd/main/data/startMessage.md';
+const fraudDb = 'https://raw.githubusercontent.com/cqd5686/tgbot/main/data/fraud.db';
+const notificationUrl = 'https://raw.githubusercontent.com/cqd5686/tgbot/main/data/notification.txt'
+const startMsgUrl = 'https://raw.githubusercontent.com/cqd5686/tgbot/main/data/startMessage.md';
 
-const enable_notification = true
+const enable_notification = false
 /**
  * Return url to telegram api, optionally with parameters added
  */
@@ -101,13 +101,14 @@ async function onMessage (message) {
     return sendMessage({
       chat_id:message.chat.id,
       text:startMsg,
+	    //text:'欢迎使用 Daki的千里传音，我会将你的私聊立刻送达！'
     })
   }
   if(message.chat.id.toString() === ADMIN_UID){
     if(!message?.reply_to_message?.chat){
       return sendMessage({
         chat_id:ADMIN_UID,
-        text:'使用方法，回复转发的消息，并发送回复消息，或者`/block`、`/unblock`、`/checkblock`等指令'
+        text:'使用方法，回复转发的消息，并发送回复消息。\n常用指令\n/block：屏蔽\n/unblock：解除屏蔽\n/checkblock ：检测屏蔽'
       })
     }
     if(/^\/block$/.exec(message.text)){
@@ -119,7 +120,7 @@ async function onMessage (message) {
     if(/^\/checkblock$/.exec(message.text)){
       return checkBlock(message)
     }
-    let guestChantId = await nfd.get('msg-map-' + message?.reply_to_message.message_id,
+    let guestChantId = await cqd.get('msg-map-' + message?.reply_to_message.message_id,
                                       { type: "json" })
     return copyMessage({
       chat_id: guestChantId,
@@ -132,7 +133,7 @@ async function onMessage (message) {
 
 async function handleGuestMessage(message){
   let chatId = message.chat.id;
-  let isblocked = await nfd.get('isblocked-' + chatId, { type: "json" })
+  let isblocked = await cqd.get('isblocked-' + chatId, { type: "json" })
   
   if(isblocked){
     return sendMessage({
@@ -148,7 +149,7 @@ async function handleGuestMessage(message){
   })
   console.log(JSON.stringify(forwardReq))
   if(forwardReq.ok){
-    await nfd.put('msg-map-' + forwardReq.result.message_id, chatId)
+    await cqd.put('msg-map-' + forwardReq.result.message_id, chatId)
   }
   return handleNotify(message)
 }
@@ -164,9 +165,9 @@ async function handleNotify(message){
     })
   }
   if(enable_notification){
-    let lastMsgTime = await nfd.get('lastmsg-' + chatId, { type: "json" })
+    let lastMsgTime = await cqd.get('lastmsg-' + chatId, { type: "json" })
     if(!lastMsgTime || Date.now() - lastMsgTime > NOTIFY_INTERVAL){
-      await nfd.put('lastmsg-' + chatId, Date.now())
+      await cqd.put('lastmsg-' + chatId, Date.now())
       return sendMessage({
         chat_id: ADMIN_UID,
         text:await fetch(notificationUrl).then(r => r.text())
@@ -176,7 +177,7 @@ async function handleNotify(message){
 }
 
 async function handleBlock(message){
-  let guestChantId = await nfd.get('msg-map-' + message.reply_to_message.message_id,
+  let guestChantId = await cqd.get('msg-map-' + message.reply_to_message.message_id,
                                       { type: "json" })
   if(guestChantId === ADMIN_UID){
     return sendMessage({
@@ -184,7 +185,7 @@ async function handleBlock(message){
       text:'不能屏蔽自己'
     })
   }
-  await nfd.put('isblocked-' + guestChantId, true)
+  await cqd.put('isblocked-' + guestChantId, true)
 
   return sendMessage({
     chat_id: ADMIN_UID,
@@ -193,10 +194,10 @@ async function handleBlock(message){
 }
 
 async function handleUnBlock(message){
-  let guestChantId = await nfd.get('msg-map-' + message.reply_to_message.message_id,
+  let guestChantId = await cqd.get('msg-map-' + message.reply_to_message.message_id,
   { type: "json" })
 
-  await nfd.put('isblocked-' + guestChantId, false)
+  await cqd.put('isblocked-' + guestChantId, false)
 
   return sendMessage({
     chat_id: ADMIN_UID,
@@ -205,13 +206,13 @@ async function handleUnBlock(message){
 }
 
 async function checkBlock(message){
-  let guestChantId = await nfd.get('msg-map-' + message.reply_to_message.message_id,
+  let guestChantId = await cqd.get('msg-map-' + message.reply_to_message.message_id,
   { type: "json" })
-  let blocked = await nfd.get('isblocked-' + guestChantId, { type: "json" })
+  let blocked = await cqd.get('isblocked-' + guestChantId, { type: "json" })
 
   return sendMessage({
     chat_id: ADMIN_UID,
-    text: `UID:${guestChantId}` + (blocked ? '被屏蔽' : '没有被屏蔽')
+    text: `UID:${guestChantId}` + (blocked ? '被屏蔽' : '没有被屏蔽   ')
   })
 }
 
