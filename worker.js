@@ -105,10 +105,19 @@ async function onMessage (message) {
     })
   }
   if(message.chat.id.toString() === ADMIN_UID){
+    if(/^\/addkw(\s+|$)/.exec(message.text || '')){
+      return handleAddKeyword(message)
+    }
+    if(/^\/delkw(\s+|$)/.exec(message.text || '')){
+      return handleDelKeyword(message)
+    }
+    if(/^\/listkw$/.exec(message.text || '')){
+      return handleListKeyword(message)
+    }
     if(!message?.reply_to_message?.chat){
       return sendMessage({
         chat_id:ADMIN_UID,
-        text:'使用方法，回复转发的消息，并发送回复消息。\n常用指令\n/block：屏蔽\n/unblock：解除屏蔽\n/checkblock ：检测屏蔽'
+        text:'使用方法，回复转发的消息，并发送回复消息。\n常用指令\n/block：屏蔽\n/unblock：解除屏蔽\n/checkblock ：检测屏蔽\n/addkw <关键字>：添加过滤词\n/delkw <关键字>：删除过滤词\n/listkw：查看过滤词'
       })
     }
     if(/^\/block$/.exec(message.text)){
@@ -134,12 +143,18 @@ async function onMessage (message) {
 async function handleGuestMessage(message){
   let chatId = message.chat.id;
   let isblocked = await cqd.get('isblocked-' + chatId, { type: "json" })
-  
+
   if(isblocked){
     return sendMessage({
       chat_id: chatId,
       text:'Your are blocked'
     })
+  }
+
+  let hitKeyword = await checkKeyword(message.text || message.caption || '')
+  if(hitKeyword){
+    await cqd.put('isblocked-' + chatId, true)
+    return
   }
 
   let forwardReq = await forwardMessage({
@@ -255,4 +270,51 @@ async function isFraud(id){
   let flag = arr.filter(v => v === id).length !== 0
   console.log(flag)
   return flag
+}
+
+async function getKeywords(){
+  return (await cqd.get('keywords', { type: "json" })) || []
+}
+
+async function checkKeyword(text){
+  if(!text) return null
+  let kws = await getKeywords()
+  return kws.find(k => text.includes(k)) || null
+}
+
+async function handleAddKeyword(message){
+  let kw = message.text.replace(/^\/addkw\s*/, '').trim()
+  if(!kw){
+    return sendMessage({ chat_id: ADMIN_UID, text: '用法: /addkw <关键字>' })
+  }
+  let kws = await getKeywords()
+  if(kws.includes(kw)){
+    return sendMessage({ chat_id: ADMIN_UID, text: `关键字"${kw}"已存在` })
+  }
+  kws.push(kw)
+  await cqd.put('keywords', JSON.stringify(kws))
+  return sendMessage({ chat_id: ADMIN_UID, text: `已添加关键字: ${kw}\n当前共 ${kws.length} 个` })
+}
+
+async function handleDelKeyword(message){
+  let kw = message.text.replace(/^\/delkw\s*/, '').trim()
+  if(!kw){
+    return sendMessage({ chat_id: ADMIN_UID, text: '用法: /delkw <关键字>' })
+  }
+  let kws = await getKeywords()
+  let idx = kws.indexOf(kw)
+  if(idx === -1){
+    return sendMessage({ chat_id: ADMIN_UID, text: `关键字"${kw}"不存在` })
+  }
+  kws.splice(idx, 1)
+  await cqd.put('keywords', JSON.stringify(kws))
+  return sendMessage({ chat_id: ADMIN_UID, text: `已删除关键字: ${kw}\n当前共 ${kws.length} 个` })
+}
+
+async function handleListKeyword(message){
+  let kws = await getKeywords()
+  let text = kws.length === 0
+    ? '当前无关键字'
+    : `当前关键字 (${kws.length} 个):\n` + kws.map((k, i) => `${i + 1}. ${k}`).join('\n')
+  return sendMessage({ chat_id: ADMIN_UID, text })
 }
