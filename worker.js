@@ -151,7 +151,12 @@ async function handleGuestMessage(message){
     })
   }
 
-  let hitKeyword = await checkKeyword(message.text || message.caption || '')
+  if(isForwardedMessage(message)){
+    console.log(`Dropped forwarded message from ${chatId}`)
+    return
+  }
+
+  let hitKeyword = await checkKeyword(buildFilterText(message))
   if(hitKeyword){
     await cqd.put('isblocked-' + chatId, true)
     return
@@ -189,6 +194,29 @@ async function handleNotify(message){
       })
     }
   }
+}
+
+function isForwardedMessage(message = {}){
+  return Boolean(
+    message.forward_origin ||
+    message.forward_from ||
+    message.forward_from_chat ||
+    message.forward_sender_name ||
+    message.forward_date ||
+    message.is_automatic_forward
+  )
+}
+
+function buildFilterText(message = {}){
+  const from = message.from || {}
+  return [
+    message.text,
+    message.caption,
+    from.first_name,
+    from.last_name,
+    from.username,
+    from.username ? `@${from.username}` : ''
+  ].filter(Boolean).join('\n')
 }
 
 async function handleBlock(message){
